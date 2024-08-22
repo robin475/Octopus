@@ -1,11 +1,18 @@
 import csv
 import datetime
+import time
 import calendar
 import matplotlib
 import matplotlib.pyplot as plt
+
 import numpy as np
 import pandas as pd
 import math
+from matplotlib.figure import Figure
+from flask import Flask, render_template, request
+from io import BytesIO
+import base64
+
 
 csv.register_dialect('octopus', delimiter=',', skipinitialspace=True)
 
@@ -223,7 +230,7 @@ with open('consumption.csv', 'r') as file:
  
         plt.show()
 
-    def heatMappage():
+    def heatMappage():    ##doesnt work fix fix fix
         preHour = 0
         hourTotal = 0
         timer = []
@@ -268,9 +275,13 @@ with open('consumption.csv', 'r') as file:
             df[names[i]] = colm   
              
         print(df)
-        plt.imshow(df, cmap = 'autumn')
-        plt.show()
+        plt.imshow(df) 
+        plt.xticks(range(len(df)), df.index)
+        plt.yticks(range(len(df)), df.columns)
 
+
+
+        plt.show()
 
 
 
@@ -279,46 +290,236 @@ with open('consumption.csv', 'r') as file:
 #    hourlyAvgBM()
 #    monthlyAggs()
 #    daysOfTheWeek()
-    heatMappage()
+#    heatMappage()
+
+
+
+app = Flask(__name__)  
+with app.app_context(): 
+
+    
+    @app.route('/hello')
+    def hello():
+        return 'HELLO EVERYBODY'
+
+    @app.route('/graph')
+    def graph():
+        fig = Figure()
+        ax = fig.subplots()
+        ax.plot([1, 2])
+    # Save it to a temporary buffer.
+        buf = BytesIO()
+        fig.savefig(buf, format="png")
+    # Embed the result in the html output.
+        data = base64.b64encode(buf.getbuffer()).decode("ascii")
+        return f"<img src='data:image/png;base64,{data}'/>"
+    
+
+    @app.route('/monthly', methods = ["GET", "POST"])
+    def hourlyMonthly():
+        csv.register_dialect('octopus', delimiter=',', skipinitialspace=True)
+
+        with open('consumption.csv', 'r') as file:
+            CSreader = csv.DictReader(file, delimiter = ',', skipinitialspace=True)
+            try:
+                if request.method == "POST":
+                    startDatehtml = request.form.get("dater1")
+                    print(startDatehtml)
+                    endDatehtml = request.form.get("dater2")
+                    print(endDatehtml)
+
+                startDate = time.strptime(startDatehtml, "%Y-%m-%d")
+                endDate = time.strptime(endDatehtml, "%Y-%m-%d")
+            except UnboundLocalError:
+                startDate = time.strptime("2023-01-01", "%Y-%m-%d")
+                endDate = time.strptime("2024-08-04", "%Y-%m-%d")
+
+
+            preHour = 0
+            hourTotal = 0
+            timer = []
+            df = pd.DataFrame()
+            
+            for i in range(0,24):
+                timer.append(0)
+
+            beacon = 0
+            for row in CSreader:
+                date = datetime.datetime.fromisoformat(row.get('Start',0))
+                dateCHECK = date.strftime("%Y-%m-%d")
+                testDate = time.strptime(str(dateCHECK), "%Y-%m-%d")
+                if testDate > startDate and testDate < endDate:
+                    if date.hour != preHour:
+                        timer[preHour] = float(timer[preHour]) + hourTotal
+                        
+                        hourTotal = 0
+
+                        if date.month != lastMonth:
+                            for i in range(0,24):
+                                timer[i] = timer[i] / lastDate.day
+                        
+                            if lastDate.strftime("%b") in df:
+                                current = df[lastDate.strftime("%b")]
+                                current = current.to_numpy()
+                                for i in range(0, len(current)):
+                                    timer[i] = (timer[i] + current[i])/2
+                                    
+
+                                #take correct array from dataframe and average each one (/2)
+
+                            df[lastDate.strftime("%b")] = timer
+                            for i in range(0,24):
+                                timer[i] = 0             
+                    
+                    hourTotal += float(row.get('Consumption (kWh)', 0))      
+                    preHour = date.hour
+                    lastMonth = date.month
+                    lastDate = date
+
+                elif testDate == endDate and beacon == 0:
+                
+                    timer[preHour] = float(timer[preHour]) + hourTotal
+                    print(timer)
+                    hourTotal = 0
+                    for i in range(0,24):
+                        timer[i] = timer[i] / lastDate.day
+                        
+                    if lastDate.strftime("%b") in df:
+                        current = df[lastDate.strftime("%b")]
+                        current = current.to_numpy()
+                        for i in range(0, len(current)):
+                            timer[i] = (timer[i] + current[i])/2
+                        print("KARAK\n",current)
+                    df[lastDate.strftime("%b")] = timer 
+                    beacon +=1                       
 
 
 
 
-x = np.array([1,2,3,4])
-y = np.array([7,3,4,12])
- 
+
+            print(df)
 
 
+            fig, ax = plt.subplots()
+            fig.set_figheight(8)
+            fig.set_figwidth(16)
 
+            
+            ax.plot(df, label = df.columns)            
 
+            leg = ax.legend()
 
+            ax.set(xlabel='Hours', ylabel='Consumption (kW)', title='Average Hourly Consumption by Month')
+            ax.grid()
+            
+            
+            buf = BytesIO()
+            fig.savefig(buf, format="png")
 
+            data = base64.b64encode(buf.getbuffer()).decode("ascii")
+            file.close()
+            return f"<img src='data:hoursByMonth/png;base64,{data}'/>", render_template("hoursByMonth.html")
 
-
+    @app.route('/aggs')
+    def monthlyAggs():
         
+        csv.register_dialect('octopus', delimiter=',', skipinitialspace=True)
+
+        with open('consumption.csv', 'r') as file:
+            CSreader = csv.DictReader(file, delimiter = ',', skipinitialspace=True)        
+        
+        
+            monthAggregates = []
+            monthNumbers = []
+            monthTotal = 0
+            lastMonth = 1
+            daysInMonth = 0
+            
+            for row in CSreader:
+                date = datetime.datetime.fromisoformat(row.get('Start',0))
+
+                if date.month != lastMonth:
+                    monthTotalkw = monthTotal * daysInMonth * 24
+                    monthAggregates.append(round(monthTotalkw, 3))
+                    monthNumbers.append(monthDate.strftime("%m/%y"))
+                    monthTotal = 0
+
+
+                monthTotal += float(row.get('Consumption (kWh)', 0))      
+                lastMonth = date.month
+                daysInMonth = date.day
+                monthDate = date
+                
+            
+            monthTotalkw = monthTotal * daysInMonth * 24
+            monthAggregates.append(round(monthTotalkw,3))
+            monthNumbers.append(monthDate.strftime("%m/%y"))
+
+
+            dataADDED = {'Months': monthNumbers,'Consumed': monthAggregates}
+            df = pd.DataFrame(data=dataADDED)
+            print(df)
+
+
+            plt.figure(figsize=(24,8))
+            plt.bar(df['Months'],df['Consumed'])
+
+            def rounder(num, dp):
+                multi = 10 ** dp
+                return math.ceil(num * multi) / multi
+            monthAggregates.sort(reverse=True)
+            top = rounder(monthAggregates[0],-5)
+            
+
+
+            fig, ax = plt.subplots()
+            fig.set_figheight(8)
+            fig.set_figwidth(16)
+
+
+            axes = plt.gca()
+            axes.set_ylim([0,top])
+
+            
+            ax.bar(df['Months'], df['Consumed'])            
+
+
+            ax.set(xlabel='Months', ylabel='Consumption (kW)', title="Aggregate Monthly Energy Consumption")
+            
+            
+            
+            buf = BytesIO()
+            fig.savefig(buf, format="png")
+
+            data = base64.b64encode(buf.getbuffer()).decode("ascii")
+
+            file.close()            
+            return f"<img src='data:hoursByMonth/png;base64,{data}'/>", render_template("aggs.html")
 
 
 
-#with open('consumption.csv', newline='') as csv:   
-#    csv_reader = csv.DictReader(csv, dialect='octopus')
-#    assert(len(csv_reader.fieldnames) == 3)
-#    field_usage,field_start,field_end = csv_reader.fieldnames
 
-#    # Raw time series data
-#    energy_series = {}
 
-#    # Average daily usage by month
-#    # NOTE: Samples are occasionally missed or duplicated
-#    # Assume the number of irregular samples is not significant!
-#    energy_daily = {}
-
-#    # Hourly average usage by hour by calendar month
-#    energy_monthhour = {}
-
-#    for sample in csv_reader:
-#        sample_usage = float(sample[field_usage])
-#        sample_start = datetime.datetime.fromisoformat(sample[field_start])
-#        sample_end = datetime.datetime.fromisoformat(sample[field_end])
 
 
     
+
+
+
+#TO DO
+#REWORK WAYS GRAPHS ARE CODED
+#PUT ALL ON ONE PAGE
+
+
+
+
+    if __name__ == '__main__':
+        app.run(debug = True)
+
+
+
+
+
+
+
+
