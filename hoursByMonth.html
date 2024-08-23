@@ -1,0 +1,62 @@
+<!doctype html>
+
+<html>
+<head>
+
+<style>
+body {
+    background-color: #DBEEDE;
+}
+
+h1 {
+    text-align: center;
+    font-size: 80px;
+}
+p {
+    text-align: center;
+    font-size: 40px;
+}
+img {
+    text-align: center;
+}
+.center {
+    margin-left:auto;
+    margin-right: auto;
+}
+td {
+    text-align: center;
+    vertical-align: middle;
+    font-size: 25px;
+}
+
+</style>
+
+<title>Energy Graphing</title>
+</head>
+
+
+<body>
+<h1>Octopus Energy Grapher</h1>
+<p>See your consumption plotted today!</p>
+<form action= "{{url_for("hourlyMonthly") }}" method = "post">
+
+<table class = "center" style = "width:50%">
+<tr>
+<td><label for = "date1">Enter Start Date</label></td>
+<td><label for = "date2">Enter End Date</label></td>
+
+<tr>
+<td><input type = "date" max="2024-08-04" min="2023-01-01" id = "date1" name = "dater1" size = 20px value = "2023-01-01"></td>
+<td><input type = "date" max="2024-08-04" min="2023-01-01" id = "date2" name = "dater2" size = 20px value = "2024-01-01"></td>  
+</tr> <!--make custom to user inputs-->
+
+<tr>
+<td colspan = 2><input type = "submit" style = "height: 40px; width: 80px"></td>
+</tr>
+</table>
+
+</form>
+<a href="aggs">Aggregate Monthly Usage</a>
+
+</body>
+</html>

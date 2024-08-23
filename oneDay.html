@@ -1,0 +1,55 @@
+<!doctype html>
+
+<html>
+<head>
+
+<style>
+body {
+    background-color: #DBEEDE;
+}
+
+h1 {
+    text-align: center;
+    font-size: 80px;
+}
+p {
+    text-align: center;
+    font-size: 40px;
+}
+img {
+    text-align: center;
+}
+.center {
+    margin-left:auto;
+    margin-right: auto;
+}
+td {
+    text-align: center;
+    vertical-align: middle;
+    font-size: 25px;
+}
+
+</style>
+
+<title>Energy Graphing</title>
+</head>
+
+
+<body>
+<h1>Octopus Energy Grapher</h1>
+<p>See your consumption plotted today!</p>
+
+
+<table class = 'center'>
+<form action= "{{url_for("oneDayLog") }}" method = "post">
+<tr><td>
+<input type = 'date' name = 'oneday' min = "2024-04-09" max = "2024-08-22">
+</td></tr>
+<tr><td>
+<input type = 'submit'>
+</td></tr>
+</form>
+</table>
+<a href="monthly">Average Hourly Consumption</a>
+</body>
+</html>
