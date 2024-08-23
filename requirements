@@ -1,2 +1,19 @@
 matplotlib
 flask
+base64
+requests
+
+import csv
+import datetime
+import time
+import calendar
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import math
+from matplotlib.figure import Figure
+from flask import Flask, render_template, request
+from io import BytesIO
+import base64
+import requests
