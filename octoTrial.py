@@ -4,7 +4,6 @@ import time
 import calendar
 import matplotlib
 import matplotlib.pyplot as plt
-
 import numpy as np
 import pandas as pd
 import math
@@ -12,6 +11,7 @@ from matplotlib.figure import Figure
 from flask import Flask, render_template, request
 from io import BytesIO
 import base64
+import requests
 
 
 csv.register_dialect('octopus', delimiter=',', skipinitialspace=True)
@@ -230,7 +230,7 @@ with open('consumption.csv', 'r') as file:
  
         plt.show()
 
-    def heatMappage():    ##doesnt work fix fix fix
+    def heatMappage():
         preHour = 0
         hourTotal = 0
         timer = []
@@ -284,14 +284,12 @@ with open('consumption.csv', 'r') as file:
         plt.show()
 
 
-
 #    hourlyAvgBD()
 #    monthlyAvgs()
 #    hourlyAvgBM()
 #    monthlyAggs()
 #    daysOfTheWeek()
 #    heatMappage()
-
 
 
 app = Flask(__name__)  
@@ -346,8 +344,10 @@ with app.app_context():
             beacon = 0
             for row in CSreader:
                 date = datetime.datetime.fromisoformat(row.get('Start',0))
+                
                 dateCHECK = date.strftime("%Y-%m-%d")
                 testDate = time.strptime(str(dateCHECK), "%Y-%m-%d")
+                
                 if testDate > startDate and testDate < endDate:
                     if date.hour != preHour:
                         timer[preHour] = float(timer[preHour]) + hourTotal
@@ -392,9 +392,6 @@ with app.app_context():
                         print("KARAK\n",current)
                     df[lastDate.strftime("%b")] = timer 
                     beacon +=1                       
-
-
-
 
 
             print(df)
@@ -496,30 +493,82 @@ with app.app_context():
             file.close()            
             return f"<img src='data:hoursByMonth/png;base64,{data}'/>", render_template("aggs.html")
 
-
-
-
-
-
-
     
+    @app.route('/apicheck', methods = ["GET", "POST"])
+    def oneDayLog():
+        try:
+            if request.method == "POST":
+                startDatehtml = request.form.get("oneday")
+            
+                
+            startDate = time.strptime(startDatehtml, "%Y-%m-%d")
+            startDater = datetime.datetime(*startDate[:3])
+            endDate = startDater + datetime.timedelta(days=1)
+        except UnboundLocalError:
+            startDate = time.strptime("2024-05-05", "%Y-%m-%d")
+            endDate = time.strptime("2024-05-05", "%Y-%m-%d")
 
 
 
-#TO DO
-#REWORK WAYS GRAPHS ARE CODED
-#PUT ALL ON ONE PAGE
+
+        ##APIKEY = '[keyhere]'
+        ##url = ('https://api.octopus.energy/v1/electricity-meter-points/[mpan]/meters/[serial number]/consumption' + 
+       ##           f'?period_from={startDater}&period_to={endDate}')
+        
+        
+        
+        
+        ##took out api key and other specifics
+        
+
+        r = requests.get(url, auth=(APIKEY,''))
+        output_dict = r.json()
+   
+        start = []
+        consumption = []
+        first = True
+        for x in output_dict['results']:
+            if first == True: 
+                first = False
+                consumer1 = x['consumption']
+            else:
+                timer = datetime.datetime.fromisoformat(x['interval_start'])
+                timer = timer.strftime("%H")
+                
+                start.append(timer)
+              
+                consumer2 = x['consumption']
+                
+                consumer2 = (float(consumer1)+float(consumer2))/2
+                consumption.append(consumer2)
+                first = True
 
 
+        dataAdder = {'Time': start, 'Consumption': consumption}
+        df = pd.DataFrame(dataAdder)
 
+
+        newdf = df[::-1]
+        newdf = newdf.set_index('Time')
+
+        print(newdf)
+
+        fig, ax = plt.subplots()
+        fig.set_figheight(8)
+        fig.set_figwidth(16)
+
+            
+        ax.plot(newdf)       
+
+        ax.set(xlabel='Time', ylabel='Consumption (kW)', title = f'Consumption for {startDatehtml}')
+      
+            
+            
+        buf = BytesIO()
+        fig.savefig(buf, format="png")
+
+        data = base64.b64encode(buf.getbuffer()).decode("ascii")
+        return f"<img src='data:oneDay/png;base64,{data}'/>", render_template("oneDay.html")
 
     if __name__ == '__main__':
         app.run(debug = True)
-
-
-
-
-
-
-
-
